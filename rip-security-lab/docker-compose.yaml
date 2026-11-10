@@ -1,0 +1,106 @@
+services:
+  r1:
+    image: quay.io/frrouting/frr:10.4.2
+    container_name: rip-r1
+    privileged: true
+    command: ["/bin/sh", "/tmp/router-start.sh"]
+    volumes:
+      - ./router-start.sh:/tmp/router-start.sh:ro
+      - ./r1/daemons:/etc/frr/daemons:ro
+      - ./r1/frr.conf:/etc/frr/frr.conf
+    networks:
+      r1_r2:
+        ipv4_address: 172.16.120.2
+      r1_lan:
+        ipv4_address: 10.10.20.2
+
+  r2:
+    image: quay.io/frrouting/frr:10.4.2
+    container_name: rip-r2
+    privileged: true
+    command: ["/bin/sh", "/tmp/router-start.sh"]
+    volumes:
+      - ./router-start.sh:/tmp/router-start.sh:ro
+      - ./r2/daemons:/etc/frr/daemons:ro
+      - ./r2/frr.conf:/etc/frr/frr.conf
+    networks:
+      r1_r2:
+        ipv4_address: 172.16.120.3
+      r2_r3:
+        ipv4_address: 172.16.130.2
+
+  r3:
+    image: quay.io/frrouting/frr:10.4.2
+    container_name: rip-r3
+    privileged: true
+    command: ["/bin/sh", "/tmp/router-start.sh"]
+    volumes:
+      - ./router-start.sh:/tmp/router-start.sh:ro
+      - ./r3/daemons:/etc/frr/daemons:ro
+      - ./r3/frr.conf:/etc/frr/frr.conf
+    networks:
+      r2_r3:
+        ipv4_address: 172.16.130.3
+      r3_r4:
+        ipv4_address: 172.16.140.2
+      client_lan:
+        ipv4_address: 10.30.40.2
+
+  r4:
+    image: quay.io/frrouting/frr:10.4.2
+    container_name: rip-r4
+    privileged: true
+    command: ["/bin/sh", "/tmp/router-start.sh"]
+    volumes:
+      - ./router-start.sh:/tmp/router-start.sh:ro
+      - ./r4/daemons:/etc/frr/daemons:ro
+      - ./r4/frr.conf:/etc/frr/frr.conf
+    networks:
+      r3_r4:
+        ipv4_address: 172.16.140.3
+
+  rip-check-tcpdump:
+    image: docker.io/nicolaka/netshoot:latest
+    container_name: rip-check-tcpdump
+    privileged: true
+    command: ["sh", "-c", "sleep infinity"]
+    networks:
+      r1_r2:
+        ipv4_address: 172.16.120.4
+      r2_r3:
+        ipv4_address: 172.16.130.4
+      r3_r4:
+        ipv4_address: 172.16.140.4
+      client_lan:
+        ipv4_address: 10.30.40.20
+
+  client:
+    image: alpine:latest
+    container_name: rip-client
+    privileged: true
+    command: ["sh", "-c", "ip route del default via 10.30.40.1 || true; ip route replace default via 10.30.40.2; sleep infinity"]
+    networks:
+      client_lan:
+        ipv4_address: 10.30.40.10
+
+networks:
+  r1_r2:
+    ipam:
+      config:
+        - subnet: 172.16.120.0/29
+  r2_r3:
+    ipam:
+      config:
+        - subnet: 172.16.130.0/29
+  r3_r4:
+    ipam:
+      config:
+        - subnet: 172.16.140.0/29
+  r1_lan:
+    ipam:
+      config:
+        - subnet: 10.10.20.0/24
+  client_lan:
+    ipam:
+      config:
+        - subnet: 10.30.40.0/24
